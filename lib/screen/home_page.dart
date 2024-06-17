@@ -7,6 +7,8 @@ import '../services/http_connection.dart';
 import '../theme_notifier.dart';
 import '../widget/tile_widget.dart';
 
+GlobalKey _formKey = GlobalKey<FormState>();
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -17,9 +19,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final HttpConnection instance = HttpConnection();
 
+  final TextEditingController _controller = TextEditingController();
+  String? query;
+
   Future<void> _refreshData() async {
     setState(() {
-      instance.getData();
+      query = _controller.text;
     });
   }
 
@@ -50,47 +55,76 @@ class _HomePageState extends State<HomePage> {
           )
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: FutureBuilder<NewsApi>(
-          future: instance.getData(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (snapshot.hasError) {
-              return Center(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: RefreshIndicator(
-                    onRefresh: () async {
-                      setState(() {
-                        instance.getData();
-                      });
-                    },
-                    child: SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.8,
-                      child: Column(children: [
-                        const Text('Failed to load data. Check connection'),
-                        ElevatedButton(
-                            onPressed: _refreshData, child: const Text('Retry'))
-                      ]),
-                    ),
-                  ),
-                ),
-              );
-            } else if (!snapshot.hasData || snapshot.data!.articles!.isEmpty) {
-              return const Center(
-                child: Text('No data found'),
-              );
-            } else if (snapshot.hasData) {
-              return TileWidget(fetchData: snapshot.data?.articles ?? []);
-            } else {
-              return const SizedBox.shrink();
-            }
-          },
-        ),
+      body: Column(
+        children: [
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              controller: _controller,
+              minLines: 1,
+              decoration: InputDecoration(
+                  hintText: 'Search',
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  border: OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.search_rounded),
+                    color: Colors.grey[350],
+                    onPressed: _refreshData,
+                  )),
+              style: GoogleFonts.montserrat(fontSize: 18),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshData,
+              child: FutureBuilder<NewsApi>(
+                future: instance.getData(query: query),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: RefreshIndicator(
+                          onRefresh: () async {
+                            setState(() {
+                              instance.getData(query: query);
+                            });
+                          },
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.8,
+                            child: Column(children: [
+                              const Text(
+                                  'Failed to load data. Check connection'),
+                              ElevatedButton(
+                                  onPressed: _refreshData,
+                                  child: const Text('Retry'))
+                            ]),
+                          ),
+                        ),
+                      ),
+                    );
+                  } else if (!snapshot.hasData ||
+                      snapshot.data!.articles!.isEmpty) {
+                    return const Center(
+                      child: Text('No data found'),
+                    );
+                  } else if (snapshot.hasData) {
+                    return TileWidget(fetchData: snapshot.data?.articles ?? []);
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
